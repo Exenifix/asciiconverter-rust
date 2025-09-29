@@ -5,21 +5,23 @@ const CONVERSION_CHARS: [char; 7] = [' ', '.', '~', ':', '*', '#', '@'];
 
 fn normalize_pixels(img: ImageBuffer<Luma<u8>, Vec<u8>>) -> ImageBuffer<Luma<u8>, Vec<u8>> where
 {
-    let mut max_val = 0;
-    for pixel in img.enumerate_pixels() {
-        max_val = max(max_val, pixel.2[0]);
+    let max_val = img.pixels().map(|p| p[0]).max().unwrap_or(1) as f32;
+
+    if max_val == 0. {
+        return img.clone();
     }
 
     ImageBuffer::from_fn(img.width(), img.height(), |x, y| {
-        Luma::from([(img.get_pixel(x, y).0[0] as f32 / max_val as f32 * 255.) as u8])
+        Luma([(img.get_pixel(x, y).0[0] as f32 / max_val * 255.) as u8])
     })
 }
 
 fn process_image(path: &str, resolution: f32) -> Result<String, Box<dyn std::error::Error>> {
     let img = ImageReader::open(path)?.decode()?.to_luma8();
     let (mut new_w, mut new_h) = img.dimensions();
+    let ratio = 2.;
     new_w = (new_w as f32 * resolution) as u32;
-    new_h = (new_h as f32 * resolution) as u32;
+    new_h = (new_h as f32 * resolution / ratio) as u32;
     let resized_image = imageops::resize(&img, new_w, new_h, imageops::FilterType::Triangle);
     let normalized_image = normalize_pixels(resized_image);
     let mut output = String::new();
@@ -35,7 +37,7 @@ fn process_image(path: &str, resolution: f32) -> Result<String, Box<dyn std::err
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let output = process_image("res/test_logo.png", 0.15)?;
+    let output = process_image("res/test_logo.png", 0.3)?;
     println!("{}", output);
 
     Ok(())
