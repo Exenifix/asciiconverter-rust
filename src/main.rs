@@ -1,11 +1,29 @@
 use clap::{Parser, ValueEnum};
 use image::*;
 
-const CONVERSION_CHARS: [char; 7] = [' ', '.', '~', ':', '*', '#', '@'];
-
 #[derive(Clone, ValueEnum)]
 enum ColorMode {
-    RGB, Grayscale
+    RGB,
+    Grayscale,
+}
+
+#[derive(Clone, ValueEnum)]
+enum Charset {
+    Simple,
+    Detailed,
+    Braille,
+    Blocks,
+}
+
+impl Charset {
+    fn get_charset(&self) -> &'static [char] {
+        match self {
+            Charset::Simple => &[' ', '.', '~', ':', '*', '#', '@'],
+            Charset::Detailed => &[' ', '.', '^', '~', ':', '*', '=', '+', '!', '?', '#', '@'],
+            Charset::Blocks => &[' ', '\u{2591}', '\u{2592}', '\u{2593}', '\u{2588}'],
+            Charset::Braille => &[' ', '\u{2810}', '\u{2812}', '\u{283F}', '\u{28FF}'],
+        }
+    }
 }
 
 #[derive(Parser)]
@@ -16,12 +34,16 @@ struct Args {
     #[arg(short, long, value_enum, default_value_t = ColorMode::Grayscale)]
     mode: ColorMode,
 
+    #[arg(short, long, value_enum, default_value_t = Charset::Simple)]
+    charset: Charset,
+
     #[arg(short, long, default_value_t = 0.3)]
-    resolution: f32
+    resolution: f32,
 }
 
-fn brightness_to_char(brightness: u8) -> char {
-    CONVERSION_CHARS[(brightness as f32 / 255. * (CONVERSION_CHARS.len() - 1) as f32) as usize]
+fn brightness_to_char(brightness: u8, charset: &Charset) -> char {
+    let chars = charset.get_charset();
+    chars[(brightness as f32 / 255. * (chars.len() - 1) as f32) as usize]
 }
 
 fn rgb_to_brightness(r: u8, g: u8, b: u8) -> u8 {
@@ -48,6 +70,7 @@ fn normalize_pixels(img: ImageBuffer<Luma<u8>, Vec<u8>>) -> ImageBuffer<Luma<u8>
 fn process_image_grayscale(
     path: &str,
     resolution: f32,
+    charset: Charset,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let img = ImageReader::open(path)?.decode()?.to_luma8();
     let (mut new_w, mut new_h) = img.dimensions();
@@ -60,7 +83,7 @@ fn process_image_grayscale(
     for y in 0..new_h {
         for x in 0..new_w {
             let brightness = normalized_image.get_pixel(x, y).0[0];
-            output.push(brightness_to_char(brightness));
+            output.push(brightness_to_char(brightness, &charset));
         }
         output.push('\n');
     }
@@ -68,7 +91,11 @@ fn process_image_grayscale(
     Ok(output)
 }
 
-fn process_image_rgb(path: &str, resolution: f32) -> Result<String, Box<dyn std::error::Error>> {
+fn process_image_rgb(
+    path: &str,
+    resolution: f32,
+    charset: Charset,
+) -> Result<String, Box<dyn std::error::Error>> {
     let img = ImageReader::open(path)?.decode()?.to_rgb8();
     let (mut new_w, mut new_h) = img.dimensions();
     let ratio = 2.;
@@ -89,6 +116,7 @@ fn process_image_rgb(path: &str, resolution: f32) -> Result<String, Box<dyn std:
             output.push_str(&rgb_to_ascii_color(r, g, b));
             output.push(brightness_to_char(
                 (rgb_to_brightness(r, g, b) as f32 / max_brightness * 255.) as u8,
+                &charset,
             ));
         }
         output.push('\n');
@@ -99,10 +127,11 @@ fn process_image_rgb(path: &str, resolution: f32) -> Result<String, Box<dyn std:
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let output = match args.mode {
-        ColorMode::RGB => process_image_rgb(&args.path, args.resolution)?,
-        ColorMode::Grayscale => process_image_grayscale(&args.path, args.resolution)?,
+    let f = match args.mode {
+        ColorMode::RGB => process_image_rgb,
+        ColorMode::Grayscale => process_image_grayscale,
     };
+    let output = f(&args.path, args.resolution, args.charset)?;
     println!("{}", output);
 
     Ok(())
