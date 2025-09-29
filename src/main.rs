@@ -1,6 +1,24 @@
+use clap::{Parser, ValueEnum};
 use image::*;
 
 const CONVERSION_CHARS: [char; 7] = [' ', '.', '~', ':', '*', '#', '@'];
+
+#[derive(Clone, ValueEnum)]
+enum ColorMode {
+    RGB, Grayscale
+}
+
+#[derive(Parser)]
+struct Args {
+    #[arg(short, long)]
+    path: String,
+
+    #[arg(short, long, value_enum, default_value_t = ColorMode::Grayscale)]
+    mode: ColorMode,
+
+    #[arg(short, long, default_value_t = 0.3)]
+    resolution: f32
+}
 
 fn brightness_to_char(brightness: u8) -> char {
     CONVERSION_CHARS[(brightness as f32 / 255. * (CONVERSION_CHARS.len() - 1) as f32) as usize]
@@ -80,7 +98,11 @@ fn process_image_rgb(path: &str, resolution: f32) -> Result<String, Box<dyn std:
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let output = process_image_rgb("res/test_logo.png", 0.3)?;
+    let args = Args::parse();
+    let output = match args.mode {
+        ColorMode::RGB => process_image_rgb(&args.path, args.resolution)?,
+        ColorMode::Grayscale => process_image_grayscale(&args.path, args.resolution)?,
+    };
     println!("{}", output);
 
     Ok(())
