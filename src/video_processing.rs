@@ -213,7 +213,7 @@ fn frame_to_grayscale(frame: Video) -> image::GrayImage {
     let (w, h) = (frame.width(), frame.height());
     let data = frame.data(0);
     let img = image::GrayImage::from_fn(w, h, |x, y| {
-        let i = (y * w + x) as usize;
+        let i = ((y * w + x) * 3) as usize;
         image::Luma([super::image_processing::rgb_to_brightness(
             data[i],
             data[i + 1],
