@@ -99,6 +99,7 @@ impl VideoPlayer {
         let mut current_frame: u32;
         let mut sequence_start = std::time::Instant::now();
         let frame_duration_millis = 1000. / self.framerate as f32;
+        print!("\x1B[2J");
         loop {
             current_frame =
                 (sequence_start.elapsed().as_millis() as f32 / frame_duration_millis) as u32;
@@ -108,10 +109,11 @@ impl VideoPlayer {
             }
 
             if current_frame == last_rendered_frame {
+                std::thread::sleep(std::time::Duration::from_millis(1));
                 continue;
             }
             last_rendered_frame = current_frame;
-            print!("{}{}", "\x1B[2J\x1B[1;1H", "\n".repeat(3)); // clear screen
+            print!("\x1B[1;1H");
             println!("{}", self.data[current_frame as usize]);
         }
     }
