@@ -145,8 +145,10 @@ fn extract_frames(path: &str, target_fps: u16) -> Result<Vec<Video>, Box<dyn std
         )?;
 
         let original_fps = data.avg_frame_rate();
+        let fps = original_fps.0 as f32 / original_fps.1 as f32;
         let fps_ratio = target_fps as f32 / (original_fps.0 as f32 / original_fps.1 as f32);
         let mut frame_count = 0f32;
+        frames.reserve(((fps * ictx.duration() as f32) as usize).min(10000));
 
         for (stream, packet) in ictx.packets() {
             if stream.index() == vsi {
